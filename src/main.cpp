@@ -1,11 +1,9 @@
 #include <iostream>
 #include <pcap.h>
 using namespace std;
-
 void packethandler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
     cout<<"Packet Captured ! Length : "<<header->len<<" bytes."<<"\n";
 }
-
 int main(){
     char error[PCAP_ERRBUF_SIZE];
     pcap_if_t *alldevs;
