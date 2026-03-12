@@ -1,62 +1,44 @@
+
 #include <iostream>
 #include <pcap.h>
-// Note: pcap.h automatically includes winsock2.h on Windows, which provides the ntohs() function.
 
 using namespace std;
-
-// Define the 14-byte Ethernet header
-struct ethernet_header {
-    u_char  dest_mac[6];    // Destination MAC address
-    u_char  src_mac[6];     // Source MAC address
-    u_short ethertype;      // Protocol type (IPv4, ARP, IPv6, etc.)
+struct ethernet_header{
+    u_char dest_mac[6];
+    u_char src_mac[6];
+    u_short ethertype; //will store protocol type
 };
 
-// Define a 4-byte struct to hold an IP address
-struct ip_address {
+struct ip_address{
     u_char byte1;
     u_char byte2;
     u_char byte3;
     u_char byte4;
 };
 
-// Define a struct that maps exactly to an IPv4 header (20 bytes total)
-struct ip_header {
-    u_char  ver_ihl;        // Version (4 bits) + Internet header length (4 bits)
-    u_char  tos;            // Type of service 
-    u_short tlen;           // Total length 
-    u_short identification; // Identification
-    u_short flags_fo;       // Flags (3 bits) + Fragment offset (13 bits)
-    u_char  ttl;            // Time to live
-    u_char  proto;          // Protocol
-    u_short crc;            // Header checksum
-    struct  ip_address saddr; // Source IP address
-    struct  ip_address daddr; // Destination IP address
+struct ip_header{
+    u_char ver_ihl;
+    u_char tos;
+    u_short tlen;
+    u_short identification;
+    u_short flags_fo;
+    u_char ttl;
+    u_char proto;
+    u_short crc;
+    struct ip_address saddr;
+    struct ip_address daddr;
 };
 
-// The callback function that runs every time a packet is captured
-void packethandler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
-    
-    // 1. Map the ethernet_header struct to the very beginning of the raw byte stream
-    const ethernet_header *eh = (ethernet_header *)pkt_data;
-
-    // 2. Check the EtherType. 0x0800 indicates IPv4. 
-    // We use ntohs() to convert from network byte order to host byte order.
-    if (ntohs(eh->ethertype) == 0x0800) {
-        
-        // Skip the 14 bytes of the Ethernet header
+void packethandler(u_char *paramater, const struct pcap_pkthdr *header, const u_char *pkt_data){
+    const ethernet_header *eh = (ethernet_header*)pkt_data;
+    if(ntohs(eh->ethertype)==0x0800){
         int ethernet_header_length = 14;
-
-        // Map the ip_header struct to where the IP data begins
-        const ip_header *ih = (ip_header *)(pkt_data + ethernet_header_length);
-
-        // Print the parsed IPv4 data
+        const ip_header *ih = (ip_header*)(pkt_data + ethernet_header_length);
         cout << "IPv4 Packet | Length: " << header->len << " bytes | ";
         cout << "Source IP: " << (int)ih->saddr.byte1 << "." << (int)ih->saddr.byte2 << "." << (int)ih->saddr.byte3 << "." << (int)ih->saddr.byte4 << " -> ";
-        cout << "Dest IP: " << (int)ih->daddr.byte1 << "." << (int)ih->daddr.byte2 << "." << (int)ih->daddr.byte3 << "." << (int)ih->daddr.byte4 << "\n";
-    } else {
-        // Print a log for non-IPv4 packets to prove the filter is working
-        // We use hex formatting to output the exact EtherType code caught
-        cout << "Non-IPv4 Packet Filtered (EtherType: 0x" << hex << ntohs(eh->ethertype) << dec << ")\n";
+        cout << "Dest IP: " << (int)ih->daddr.byte1 << "." << (int)ih->daddr.byte2 << "." << (int)ih->daddr.byte3 << "." << (int)ih->daddr.byte4 << "\n"; 
+    }else{
+        cout<<"Non-IPv4 Packet Filtered (EtherType: 0x"<<hex<<ntohs(eh->ethertype)<<dec<<")\n";
     }
 }
 
