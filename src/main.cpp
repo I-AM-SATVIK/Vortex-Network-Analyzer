@@ -29,11 +29,20 @@ struct ip_header {
     struct  ip_address daddr;
 };
 
+// Layer 4: TCP Header (Expanded to reach the Data Offset field)
 struct tcp_header {
-    u_short sport;
-    u_short dport;
+    u_short sport;          // 2 bytes
+    u_short dport;          // 2 bytes
+    u_int   seq;            // 4 bytes
+    u_int   ack;            // 4 bytes
+    u_char  data_offset;    // 1 byte (Top 4 bits contain the header length)
+    u_char  flags;          // 1 byte
+    u_short win;            // 2 bytes
+    u_short crc;            // 2 bytes
+    u_short urp;            // 2 bytes
 };
 
+// Layer 4: UDP Header (Fixed at 8 bytes)
 struct udp_header {
     u_short sport;
     u_short dport;
@@ -43,44 +52,82 @@ struct udp_header {
 
 void packethandler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
     
-    // Retrieve the datalink type passed from main()
     int link_type = *(int*)param;
     int link_offset = 0;
     bool is_ipv4 = false;
 
-    // Standard Ethernet / Wi-Fi (14-byte header)
     if (link_type == DLT_EN10MB) { 
         const ethernet_header *eh = (ethernet_header *)pkt_data;
-        if (ntohs(eh->ethertype) == 0x0800) {
-            link_offset = 14;
-            is_ipv4 = true;
-        }
-    } 
-    // Local Loopback Adapter (4-byte header)
-    else if (link_type == DLT_NULL) { 
-        // A loopback header is 4 bytes. The value '2' represents AF_INET (IPv4).
-        if (pkt_data[0] == 2 || pkt_data[3] == 2) {
-            link_offset = 4;
-            is_ipv4 = true;
-        }
+        if (ntohs(eh->ethertype) == 0x0800) { link_offset = 14; is_ipv4 = true; }
+    } else if (link_type == DLT_NULL) { 
+        if (pkt_data[0] == 2 || pkt_data[3] == 2) { link_offset = 4; is_ipv4 = true; }
     }
 
-    // Process if it is an IPv4 packet, dynamically skipping the link offset
     if (is_ipv4) {
         const ip_header *ih = (ip_header *)(pkt_data + link_offset);
         int ip_header_length = (ih->ver_ihl & 0x0F) * 4;
-
+        int transport_header_length = 0;
+        
+        cout << "\n-------------------------------------------------\n";
         cout << "IPv4 | " << (int)ih->saddr.byte1 << "." << (int)ih->saddr.byte2 << "." << (int)ih->saddr.byte3 << "." << (int)ih->saddr.byte4 << " -> ";
-        cout << (int)ih->daddr.byte1 << "." << (int)ih->daddr.byte2 << "." << (int)ih->daddr.byte3 << "." << (int)ih->daddr.byte4 << " | ";
+        cout << (int)ih->daddr.byte1 << "." << (int)ih->daddr.byte2 << "." << (int)ih->daddr.byte3 << "." << (int)ih->daddr.byte4 << "\n";
 
         if (ih->proto == 6) { 
             const tcp_header *th = (tcp_header *)(pkt_data + link_offset + ip_header_length);
-            cout << "TCP Ports: " << ntohs(th->sport) << " -> " << ntohs(th->dport) << "\n";
+            transport_header_length = ((th->data_offset & 0xF0) >> 4) * 4;
+            cout << "TCP  | Ports: " << ntohs(th->sport) << " -> " << ntohs(th->dport) << "\n";
         } else if (ih->proto == 17) { 
             const udp_header *uh = (udp_header *)(pkt_data + link_offset + ip_header_length);
-            cout << "UDP Ports: " << ntohs(uh->sport) << " -> " << ntohs(uh->dport) << "\n";
+            transport_header_length = 8; 
+            cout << "UDP  | Ports: " << ntohs(uh->sport) << " -> " << ntohs(uh->dport) << "\n";
         } else {
-            cout << "Other Protocol: " << (int)ih->proto << "\n";
+            return; 
+        }
+
+        int total_headers_size = link_offset + ip_header_length + transport_header_length;
+        int payload_size = header->len - total_headers_size;
+
+        if (payload_size > 0) {
+            cout << "DATA | Payload Size: " << payload_size << " bytes\n\n";
+            const u_char *payload = pkt_data + total_headers_size;
+            
+            // Limit the dump to the first 64 bytes to prevent terminal flooding
+            int dump_size = (payload_size < 64) ? payload_size : 64;
+
+            // Generate the Hex Dump
+            for (int i = 0; i < dump_size; i += 16) {
+                
+                // 1. Print the memory offset (e.g., 0000, 0010)
+                printf("  %04X  ", i);
+
+                // 2. Print the Hexadecimal view
+                for (int j = 0; j < 16; j++) {
+                    if (i + j < dump_size) {
+                        printf("%02X ", payload[i + j]);
+                    } else {
+                        printf("   "); // Print blank spaces if the row is incomplete
+                    }
+                    if (j == 7) printf(" "); // Add a divider space in the middle of the hex grid
+                }
+
+                printf("  ");
+
+                // 3. Print the ASCII view
+                for (int j = 0; j < 16; j++) {
+                    if (i + j < dump_size) {
+                        u_char c = payload[i + j];
+                        if (c >= 32 && c <= 126) {
+                            printf("%c", c);
+                        } else {
+                            printf(".");
+                        }
+                    }
+                }
+                printf("\n");
+            }
+            cout << "\n";
+        } else {
+            cout << "DATA | No Payload (0 bytes)\n";
         }
     }
 }
