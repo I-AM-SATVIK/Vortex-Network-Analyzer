@@ -20,8 +20,8 @@ This project demonstrates low-level system interactions, memory management, and 
 * [x] Environment and Npcap SDK configuration.
 * [x] Network interface enumeration and selection.
 * [x] Raw packet capture loop initialization.
-* [ ] Packet header parsing (Extracting IPs, Ports, Protocols).
-* [ ] Inter-process communication (IPC) between C++ and Python.
+* [x] Packet header parsing (Extracting IPs, Ports, Protocols).
+* [x] Inter-process communication (IPC) between C++ and Python.
 * [ ] GUI implementation.
 
 ## Build and Run Instructions (Windows)
