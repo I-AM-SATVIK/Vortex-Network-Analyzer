@@ -35,4 +35,4 @@ This project demonstrates low-level system interactions, memory management, and 
 Run the following command in the terminal from the project root:
 
 ```powershell
-g++ src/main.cpp -o vortex.exe -I"./lib/Include" -L"./lib/Lib/x64" -lwpcap -lPacket
+g++ src/main.cpp -o vortex.exe -I"./lib/Include" -L"./lib/Lib/x64" -lwpcap -lPacket -lws2_32
